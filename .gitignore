@@ -1,0 +1,53 @@
+# --- Secrets and env ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- uv / virtualenv ---
+.venv/
+venv/
+# uv.lock SHOULD be committed (reproducible installs) — do not ignore it
+
+# --- Testing / coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- InsightFace / model cache ---
+# The buffalo_l weights download to ~/.insightface by default (outside the repo),
+# but if you ever point the model root into the project, ignore it here.
+.insightface/
+models/insightface/
+
+# --- Local scratch / uploads ---
+# Temp files the worker writes while processing images
+tmp/
+*.tmp
+scratch/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+# (compose file itself is committed; this is just for local override files)
+docker-compose.override.yml
+
+# --- Alembic ---
+# Migrations ARE committed. Nothing to ignore here normally.

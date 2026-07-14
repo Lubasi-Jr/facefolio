@@ -1,0 +1,42 @@
+services:
+
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    # Load Supabase vars (SUPABASE_URL, SUPABASE_JWT_SECRET, etc.) from .env.
+    # DATABASE_URL and REDIS_URL are overridden below to target the local services
+    # instead of the remote Supabase/Upstash URLs stored in .env.
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/facefolio
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy   # wait for pg_isready before starting
+      redis:
+        condition: service_started
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"   # expose so you can connect with psql / TablePlus locally
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: facefolio
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d facefolio"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"   # expose for redis-cli inspection locally
+
+volumes:
+  postgres_data:
