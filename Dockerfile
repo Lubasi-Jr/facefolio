@@ -29,6 +29,12 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy application source.
 COPY app/ ./app/
 
+# Copy Alembic config and migrations so `alembic upgrade head` can run in this container,
+# reusing the DATABASE_URL override docker-compose.yml sets for this service instead of
+# needing host-side env juggling.
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
+
 # Activate the venv by prepending its bin dir to PATH.
 ENV PATH="/app/.venv/bin:$PATH" \
     # Don't write .pyc files into the image.
