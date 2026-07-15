@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.router import api_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,6 +18,8 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         return {"status": "ok"}
+
+    app.include_router(api_router, prefix="/api/v1")
 
     return app
 

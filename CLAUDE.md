@@ -61,6 +61,11 @@ abstractions. When a decision has a tradeoff, briefly note it in a comment or in
   thresholds; add a setting. Secrets load from `.env` (which is gitignored).
 - Prefer explicit over magic. Small, named functions over long ones.
 - When creating a file, put it in the right layer per the structure below. Ask if unsure.
+- Use `Annotated[Type, Depends(...)]` for all FastAPI dependencies, never the
+  legacy `param: Type = Depends(...)` default-value style. Define reusable aliases
+  (e.g. `SessionDep = Annotated[AsyncSession, Depends(get_session)]`,
+  `CurrentUser = Annotated[str, Depends(current_user)]`) in app/dependencies.py
+  and use those in endpoint signatures.
 
 ## Working style with me
 

@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
     supabase_url: str
-    supabase_jwt_secret: str
     supabase_service_key: str
     storage_bucket: str
 
@@ -22,6 +21,10 @@ class Settings(BaseSettings):
 
     max_photos_per_event: int
     celery_concurrency: int
+
+    @property
+    def supabase_jwks_url(self) -> str:
+        return f"{self.supabase_url}/auth/v1/.well-known/jwks.json"
 
 
 settings = Settings()
