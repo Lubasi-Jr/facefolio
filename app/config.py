@@ -1,8 +1,12 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    environment: Literal["development", "production"] = "development"
 
     database_url: str
     redis_url: str
@@ -21,6 +25,9 @@ class Settings(BaseSettings):
 
     max_photos_per_event: int
     celery_concurrency: int
+
+    # How long a gallery's signed web/thumb read URLs stay valid, in seconds.
+    gallery_url_expires_in: int = 3600
 
     @property
     def supabase_jwks_url(self) -> str:

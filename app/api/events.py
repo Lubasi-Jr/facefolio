@@ -1,11 +1,14 @@
 import uuid
 
+import structlog
 from fastapi import APIRouter, Depends, status
 
 from app.auth.guards import require_event_member
 from app.db.queries.events import create_event, get_event, list_events_by_host
 from app.dependencies import CurrentUser, SessionDep
 from app.schemas.events import EventCreate, EventRead
+
+log = structlog.get_logger()
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -16,13 +19,16 @@ async def create_event_endpoint(
     session: SessionDep,
     user_id: CurrentUser,
 ):
-    return await create_event(
+    event = await create_event(
         session,
         host_id=user_id,
         name=body.name,
         event_date=body.event_date,
         expires_at=body.expires_at,
     )
+    structlog.contextvars.bind_contextvars(event_id=str(event.id))
+    log.info("event.created", expires_at=event.expires_at.isoformat())
+    return event
 
 
 @router.get("", response_model=list[EventRead])

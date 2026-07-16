@@ -14,5 +14,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "pyjwt[crypto]>=2.13.0",
     "sqlalchemy>=2.0.51",
+    "structlog>=26.1.0",
+    "supabase>=2.31.0",
     "uvicorn[standard]>=0.51.0",
 ]

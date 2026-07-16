@@ -1,9 +1,12 @@
 import uuid
 
+import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+
+log = structlog.get_logger()
 
 
 async def get_or_create_user(
@@ -23,7 +26,11 @@ async def get_or_create_user(
         .values(id=user_id, email=email, display_name=display_name)
         .on_conflict_do_nothing(index_elements=["id"])
     )
-    await session.execute(stmt)
+    result = await session.execute(stmt)
     await session.commit()
+
+    # rowcount is 0 if a concurrent request won the race and inserted first.
+    if result.rowcount:
+        log.info("auth.user_created", user_id=str(user_id))
 
     return await session.get(User, user_id)

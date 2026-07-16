@@ -67,6 +67,26 @@ abstractions. When a decision has a tradeoff, briefly note it in a comment or in
   `CurrentUser = Annotated[str, Depends(current_user)]`) in app/dependencies.py
   and use those in endpoint signatures.
 
+## Logging
+
+- All logging uses structlog. Never use `print()` or bare stdlib `logging` calls.
+- Every log call's first argument is a dotted event name (`photo.processing.faces_detected`),
+  never a prose sentence. Context goes in keyword arguments, never f-strings.
+  Good:  log.info("photo.processing.completed", photo_id=pid, faces=3, duration_ms=412)
+  Bad:   log.info(f"Processed photo {pid} with 3 faces")
+- Bind `event_id` / `photo_id` / `user_id` via contextvars at the start of a request or
+  Celery task so downstream lines inherit them automatically.
+- When building or modifying any core feature, add logging at: entry (what was requested),
+  each significant state transition, external calls (storage, queue) and their outcome, all
+  failure paths (with the underlying exception), and completion (with a duration and a
+  count where meaningful).
+- Log ids, never payloads. Never log JWTs, signed URLs, secrets, emails, or embeddings.
+- Failures log the real exception internally while the client-facing message stays vague.
+- NEVER log face embeddings or any vector data. Embeddings are biometric data under
+  POPIA/GDPR — logging them creates copies outside the database that the purge job cannot
+  reach. Log shape and derived metrics instead: face_count, dims, norms, det_scores,
+  similarity scores, quality pass/reject counts with reasons.
+
 ## Working style with me
 
 - I run prompts one small unit at a time, on purpose, to learn as I go. Do NOT scaffold ahead

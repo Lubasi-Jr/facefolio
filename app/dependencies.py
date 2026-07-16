@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
+import structlog
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +23,9 @@ async def current_user(
     # The JWT carries no display name; fall back to the email's local part
     # until there's a "set your name" flow.
     user = await get_or_create_user(session, user_id, email, display_name=email.split("@")[0])
+    # Bound here so every log line for the rest of this request carries it,
+    # without every endpoint having to bind it manually.
+    structlog.contextvars.bind_contextvars(user_id=str(user.id))
     return user.id
 
 
