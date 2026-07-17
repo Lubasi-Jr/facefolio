@@ -28,6 +28,7 @@ from app.schemas.photos import (
 )
 from app.storage.client import storage_client
 from app.storage.keys import original_key
+from app.worker.tasks import process_photo
 
 log = structlog.get_logger()
 
@@ -127,10 +128,8 @@ async def confirm_photo_endpoint(
     photo = await mark_photo_queued(session, photo)
     log.info("photo.upload.confirmed", from_status=from_status, to_status=photo.status)
 
-    # TODO(Phase 4): enqueue the Celery task that detects faces and computes
-    # embeddings for this photo, carrying only photo_id per the queue-message
-    # convention in CLAUDE.md.
-    log.info("photo.upload.enqueue_pending", note="Celery enqueue not yet implemented")
+    task = process_photo.delay(str(photo_id))
+    log.info("photo.upload.enqueued", task_id=task.id)
 
     return PhotoConfirmResponse(photo_id=photo.id, status=photo.status)
 

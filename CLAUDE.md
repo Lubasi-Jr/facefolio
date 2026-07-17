@@ -87,6 +87,22 @@ abstractions. When a decision has a tradeoff, briefly note it in a comment or in
   reach. Log shape and derived metrics instead: face_count, dims, norms, det_scores,
   similarity scores, quality pass/reject counts with reasons.
 
+
+## Celery
+
+- Redis is the BROKER only. result_backend is disabled — task outcomes are tracked via
+  the photos.status column in Postgres, which the frontend can poll. Do not add a result
+  backend.
+- One message per photo, carrying only photo_id. The task looks up everything else.
+  Never create a process_batch(photo_ids) task.
+- Tasks must be idempotent (at-least-once delivery means they may run twice):
+  deterministic storage keys, delete-then-insert for face rows in a transaction,
+  ON CONFLICT DO NOTHING for tag upserts.
+- Required settings: acks_late=True, worker_prefetch_multiplier=1,
+  task_soft_time_limit=120, task_time_limit=150, max_retries=3 with backoff.
+- The worker calls configure_logging() at startup so it logs identically to the API.
+- Worker code is synchronous. Do not wrap storage or CV calls in asyncio.run().
+
 ## Working style with me
 
 - I run prompts one small unit at a time, on purpose, to learn as I go. Do NOT scaffold ahead

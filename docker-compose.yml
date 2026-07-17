@@ -17,6 +17,36 @@ services:
       redis:
         condition: service_started
 
+  worker:
+    build: .
+    command: uv run celery -A app.worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY}
+    # Load Supabase vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, etc.) from .env.
+    # DATABASE_URL and REDIS_URL are overridden below to target the local services
+    # instead of the remote Supabase/Upstash URLs stored in .env.
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/facefolio
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy   # wait for pg_isready before starting
+      redis:
+        condition: service_started
+
+  beat:
+    build: .
+    command: uv run celery -A app.worker.celery_app beat --loglevel=info
+    # Load Supabase vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, etc.) from .env.
+    # DATABASE_URL and REDIS_URL are overridden below to target the local services
+    # instead of the remote Supabase/Upstash URLs stored in .env.
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/facefolio
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_started
+
   postgres:
     image: pgvector/pgvector:pg16
     ports:

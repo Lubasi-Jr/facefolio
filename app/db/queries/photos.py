@@ -46,6 +46,12 @@ async def mark_photo_queued(session: AsyncSession, photo: Photo) -> Photo:
     return photo
 
 
+async def mark_photo_processed(session: AsyncSession, photo: Photo) -> Photo:
+    photo.status = "processed"
+    await session.commit()
+    return photo
+
+
 async def get_gallery_photos(session: AsyncSession, event_id: uuid.UUID) -> list[Photo]:
     # Only photos that have finished processing (web/thumb generated) belong
     # in the gallery. Newest-first, backed by idx_photos_event_taken.
