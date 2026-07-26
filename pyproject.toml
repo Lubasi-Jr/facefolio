@@ -3,14 +3,19 @@ name = "backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "celery>=5.6.3",
     "email-validator>=2.3.0",
     "fastapi>=0.139.0",
+    "insightface>=1.0.1",
+    "numpy>=2.5.1",
+    "onnxruntime>=1.28.0",
+    "opencv-python-headless>=5.0.0.93",
     "pgvector>=0.5.0",
+    "pillow>=12.3.0",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.14.2",
     "pyjwt[crypto]>=2.13.0",
@@ -19,4 +24,15 @@ dependencies = [
     "structlog>=26.1.0",
     "supabase>=2.31.0",
     "uvicorn[standard]>=0.51.0",
+]
+
+[tool.uv]
+# insightface hard-depends on opencv-python, but we only want opencv-python-headless
+# installed (both provide the `cv2` module and collide if co-installed, and the
+# python:3.12-slim base image lacks libGL.so.1 that non-headless opencv needs).
+# This override makes the opencv-python requirement unsatisfiable by any platform,
+# so uv drops it from the resolution while opencv-python-headless (our direct dep)
+# still provides cv2.
+override-dependencies = [
+    "opencv-python; sys_platform == 'never'",
 ]

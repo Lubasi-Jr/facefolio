@@ -26,6 +26,22 @@ class Settings(BaseSettings):
     max_photos_per_event: int
     celery_concurrency: int
 
+    # CV quality gates for photo faces (permissive — guests can't retake event
+    # photos, so we only reject faces genuinely too poor to embed/match).
+    face_min_size_px: int = 60
+    face_det_score_min: float = 0.6
+    # Laplacian variance of the face crop; below this looks blurry.
+    # Placeholder — calibrate against real photos.
+    face_blur_variance_min: float = 100.0
+
+    # CV quality gates for the onboarding selfie (stricter — the guest can
+    # retake it immediately, so we ask for a clean, single-face shot).
+    selfie_min_face_size_px: int = 200
+    # Mean grayscale intensity (0-255) of the face crop must fall in this
+    # range. Placeholders — calibrate against real selfies.
+    selfie_brightness_min: float = 40.0
+    selfie_brightness_max: float = 220.0
+
     # How long a gallery's signed web/thumb read URLs stay valid, in seconds.
     gallery_url_expires_in: int = 3600
 

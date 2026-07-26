@@ -2,7 +2,7 @@
 # Install dependencies into a virtual environment using uv.
 # Using the same base image in both stages guarantees the Python interpreter
 # version is identical, so the copied .venv is bit-for-bit compatible.
-FROM python:3.14-slim AS builder
+FROM python:3.12-slim AS builder
 
 # Grab just the uv binary from the official image — no extra layer baggage.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -19,7 +19,7 @@ RUN uv sync --frozen --no-install-project --no-cache
 
 
 # ---- final ----
-FROM python:3.14-slim AS final
+FROM python:3.12-slim AS final
 
 WORKDIR /app
 

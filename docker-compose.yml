@@ -19,7 +19,7 @@ services:
 
   worker:
     build: .
-    command: uv run celery -A app.worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY}
+    command: /app/.venv/bin/celery -A app.worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY}
     # Load Supabase vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, etc.) from .env.
     # DATABASE_URL and REDIS_URL are overridden below to target the local services
     # instead of the remote Supabase/Upstash URLs stored in .env.
@@ -35,7 +35,7 @@ services:
 
   beat:
     build: .
-    command: uv run celery -A app.worker.celery_app beat --loglevel=info
+    command: /app/.venv/bin/celery -A app.worker.celery_app beat --loglevel=info
     # Load Supabase vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, etc.) from .env.
     # DATABASE_URL and REDIS_URL are overridden below to target the local services
     # instead of the remote Supabase/Upstash URLs stored in .env.
