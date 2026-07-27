@@ -19,7 +19,15 @@ services:
 
   worker:
     build: .
-    command: /app/.venv/bin/celery -A app.worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY}
+    # --pool=solo: the default prefork pool forks child processes, and native
+    # ML libs (onnxruntime, OpenCV) loaded in worker_process_init don't
+    # survive fork() cleanly (the worker hangs). solo runs single-process/
+    # single-thread with no forking, so the CV libraries initialize once in
+    # the main process. --concurrency doesn't apply under solo, so it's
+    # dropped here. Production can revisit a fork-safe pool (load the model
+    # lazily inside each child instead of at worker_process_init, or use
+    # --pool=threads) once concurrent processing is worth the complexity.
+    command: /app/.venv/bin/celery -A app.worker.celery_app worker --loglevel=info --pool=solo
     # Load Supabase vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, etc.) from .env.
     # DATABASE_URL and REDIS_URL are overridden below to target the local services
     # instead of the remote Supabase/Upstash URLs stored in .env.

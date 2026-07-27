@@ -9,6 +9,7 @@ import time
 from io import BytesIO
 from pathlib import Path
 
+import cv2
 import numpy as np
 import structlog
 from PIL import Image, ImageOps
@@ -67,6 +68,20 @@ def build_thumbnail(source_path: str | Path) -> bytes:
     duration_ms = int((time.monotonic() - start) * 1000)
     log.debug("cv.imaging.thumbnail.completed", bytes=len(data), duration_ms=duration_ms)
     return data
+
+
+def load_bgr(source_path: str | Path) -> np.ndarray:
+    """Loads an image as a BGR array for detection/quality-gating.
+
+    Separate from _load_rgb: detection and blur/brightness checks use cv2
+    conventions (BGR), while the web/thumb derivatives use PIL (RGB). Modern
+    OpenCV applies EXIF orientation on decode, so this stays consistent with
+    the derivatives above without redoing that step manually.
+    """
+    image = cv2.imread(str(source_path))
+    if image is None:
+        raise ValueError(f"could not read image at {source_path}")
+    return image
 
 
 def crop_face(image: np.ndarray, bbox: np.ndarray) -> np.ndarray:

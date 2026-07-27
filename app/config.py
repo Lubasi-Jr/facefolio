@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     match_t_low: float
     match_margin: float
 
+    # Single cosine-similarity cutoff for auto-tagging. Placeholder ahead of
+    # Phase 11, which replaces this with the t_high/t_low/margin bands above.
+    match_threshold: float = 0.5
+
     max_photos_per_event: int
     celery_concurrency: int
 

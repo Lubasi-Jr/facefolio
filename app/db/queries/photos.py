@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,8 +47,24 @@ async def mark_photo_queued(session: AsyncSession, photo: Photo) -> Photo:
     return photo
 
 
-async def mark_photo_processed(session: AsyncSession, photo: Photo) -> Photo:
+async def mark_photo_processed(
+    session: AsyncSession,
+    photo: Photo,
+    *,
+    web_key: str,
+    thumb_key: str,
+    taken_at: datetime | None,
+) -> Photo:
     photo.status = "processed"
+    photo.web_key = web_key
+    photo.thumb_key = thumb_key
+    photo.taken_at = taken_at
+    await session.commit()
+    return photo
+
+
+async def mark_photo_failed(session: AsyncSession, photo: Photo) -> Photo:
+    photo.status = "failed"
     await session.commit()
     return photo
 

@@ -55,6 +55,19 @@ class StorageClient:
         log.info("storage.signed_read_urls.created", count=len(keys), expires_in=expires_in)
         return {item["path"]: item["signedURL"] for item in results}
 
+    def upload_bytes(self, key: str, data: bytes, content_type: str) -> None:
+        # upsert=true because these are deterministic keys (see storage/keys.py):
+        # reprocessing a photo re-uploads the same key rather than erroring
+        # on an existing object.
+        try:
+            self._bucket.upload(
+                key, data, file_options={"content-type": content_type, "upsert": "true"}
+            )
+        except Exception:
+            log.exception("storage.object.upload_failed", key=key)
+            raise
+        log.info("storage.object.uploaded", key=key, size_bytes=len(data))
+
     def download_to_path(self, key: str, local_path: str) -> None:
         try:
             data = self._bucket.download(key)
