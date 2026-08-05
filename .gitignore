@@ -1,0 +1,11 @@
+# root-level
+.DS_Store
+*.log
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# backend has its own .gitignore in backend/
