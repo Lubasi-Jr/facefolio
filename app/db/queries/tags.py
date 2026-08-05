@@ -18,11 +18,20 @@ class EnrollmentMatch:
 
 
 @dataclass
+class FaceMatch:
+    photo_id: uuid.UUID
+    similarity: float
+
+
+@dataclass
 class TagUpsert:
     photo_id: uuid.UUID
     user_id: uuid.UUID
-    face_id: uuid.UUID
     similarity: float
+    # None for tags produced by enrollment-time matching (see
+    # match_enrollment_to_faces), which matches against photos, not a
+    # specific face row. photo_tags.face_id is nullable for this reason.
+    face_id: uuid.UUID | None = None
 
 
 def _vector_literal(embedding: Sequence[float]) -> str:
@@ -58,6 +67,43 @@ async def find_top_enrollment_matches(
         {"face_vec": _vector_literal(face_embedding), "event_id": event_id},
     )
     return [EnrollmentMatch(user_id=row.user_id, similarity=row.similarity) for row in result.all()]
+
+
+_BEST_FACE_MATCH_PER_PHOTO_SQL = text(
+    """
+    SELECT DISTINCT ON (f.photo_id)
+           f.photo_id,
+           1 - (f.embedding <=> CAST(:selfie_vec AS vector)) AS similarity
+    FROM faces f
+    WHERE f.event_id = :event_id
+      AND f.embedding IS NOT NULL
+      AND 1 - (f.embedding <=> CAST(:selfie_vec AS vector)) >= :threshold
+    ORDER BY f.photo_id, f.embedding <=> CAST(:selfie_vec AS vector)
+    """
+)
+
+
+async def match_enrollment_to_faces(
+    session: AsyncSession,
+    event_id: uuid.UUID,
+    selfie_embedding: Sequence[float],
+    threshold: float = settings.match_threshold,
+) -> list[FaceMatch]:
+    """For a guest's enrollment selfie, find their best-matching face in each
+    event photo. DISTINCT ON (photo_id) keeps only the nearest face per photo,
+    so a guest appearing twice in one photo still yields a single result for
+    that photo. Faces with a NULL embedding (purged at event expiry) are
+    excluded.
+    """
+    result = await session.execute(
+        _BEST_FACE_MATCH_PER_PHOTO_SQL,
+        {
+            "selfie_vec": _vector_literal(selfie_embedding),
+            "event_id": event_id,
+            "threshold": threshold,
+        },
+    )
+    return [FaceMatch(photo_id=row.photo_id, similarity=row.similarity) for row in result.all()]
 
 
 async def match_faces_to_enrollments(

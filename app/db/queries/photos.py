@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.photo import Photo
+from app.models.photo_tag import PhotoTag
 
 
 async def get_photo(session: AsyncSession, photo_id: uuid.UUID) -> Photo | None:
@@ -76,6 +77,26 @@ async def get_gallery_photos(session: AsyncSession, event_id: uuid.UUID) -> list
         select(Photo)
         .where(
             Photo.event_id == event_id,
+            Photo.web_key.isnot(None),
+            Photo.thumb_key.isnot(None),
+        )
+        .order_by(Photo.taken_at.desc(), Photo.created_at.desc())
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_my_photos(session: AsyncSession, event_id: uuid.UUID, user_id: uuid.UUID) -> list[Photo]:
+    """"Photos of You": processed photos in this event tagged with a
+    confirmed match to this user. Counterpart to get_gallery_photos, with
+    the same processed-only filter and newest-first ordering."""
+    stmt = (
+        select(Photo)
+        .join(PhotoTag, PhotoTag.photo_id == Photo.id)
+        .where(
+            Photo.event_id == event_id,
+            PhotoTag.user_id == user_id,
+            PhotoTag.status == "confirmed",
             Photo.web_key.isnot(None),
             Photo.thumb_key.isnot(None),
         )

@@ -13,6 +13,7 @@ from app.db.queries.photos import (
     count_photos_for_event,
     create_photos,
     get_gallery_photos,
+    get_my_photos,
     get_photo,
     mark_photo_queued,
 )
@@ -184,5 +185,45 @@ async def get_gallery_endpoint(
     ]
 
     log.info("photo.gallery.listed", count=len(gallery))
+
+    return GalleryResponse(photos=gallery)
+
+
+@router.get(
+    "/events/{event_id}/photos/mine",
+    response_model=GalleryResponse,
+    dependencies=[Depends(require_event_member)],
+)
+async def get_my_photos_endpoint(
+    event_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUser,
+):
+    structlog.contextvars.bind_contextvars(event_id=str(event_id))
+    photos = await get_my_photos(session, event_id, user_id)
+
+    # web_key/thumb_key are guaranteed set by the get_my_photos filter.
+    keys = [key for photo in photos for key in (photo.web_key, photo.thumb_key)]
+    try:
+        signed = await run_in_threadpool(
+            storage_client.create_signed_read_urls, keys, settings.gallery_url_expires_in
+        )
+    except Exception:
+        log.exception("photo.my_photos.signed_url_failed", count=len(photos))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not load your photos, try again",
+        ) from None
+
+    gallery = [
+        GalleryPhoto(
+            photo_id=photo.id,
+            web_url=signed[photo.web_key],
+            thumb_url=signed[photo.thumb_key],
+        )
+        for photo in photos
+    ]
+
+    log.info("photo.my_photos.listed", count=len(gallery))
 
     return GalleryResponse(photos=gallery)
