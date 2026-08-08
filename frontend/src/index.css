@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Fonts (self-hosted from src/assets/fonts/) ---- */
+
+@font-face {
+  font-family: "Capriola";
+  src: url("./assets/fonts/Capriola-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("./assets/fonts/PlusJakartaSans-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("./assets/fonts/PlusJakartaSans-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("./assets/fonts/PlusJakartaSans-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---- Design tokens (see DESIGN.md) ---- */
+
+:root {
+  /* brand */
+  --color-primary: #777c6d;
+  --color-primary-hover: #656a5c;
+  --color-secondary: #b7b89f;
+
+  /* surfaces & neutrals */
+  --color-background: #eeeeee;
+  --color-surface: #ffffff;
+  --color-surface-muted: #cbcbcb;
+  --color-border: #d4d4d4;
+
+  /* text */
+  --color-text-primary: #2a2c26;
+  --color-text-secondary: #5a5d52;
+  --color-text-disabled: #9a9c90;
+  --color-on-primary: #ffffff;
+
+  /* status */
+  --color-success: #5f7d52;
+  --color-success-bg: #e8efe3;
+  --color-info: #5b7a8c;
+  --color-info-bg: #e5ecef;
+  --color-warning: #b08947;
+  --color-warning-bg: #f5edde;
+  --color-danger: #a6534a;
+  --color-danger-bg: #f2e3e1;
+
+  /* interactive */
+  --color-focus-ring: #777c6d;
+  --color-scrim: rgba(42, 44, 38, 0.5);
+}
+
+/* ---- Base ---- */
+
+html {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body, "Plus Jakarta Sans", system-ui, sans-serif);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Capriola", sans-serif;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* visible keyboard focus everywhere */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
