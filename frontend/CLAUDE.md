@@ -19,6 +19,9 @@ never hardcode a hex value or a pixel spacing that isn't in the system.
 - Supabase JS client for AUTH ONLY (signInWithOtp, session/token). NEVER for database
   queries — all data goes through the backend API.
 - Tailwind CSS v3 (NOT v4 — v4 ignores tailwind.config.ts and the @tailwind directives). Styling depends on a non-empty postcss.config.js with `tailwindcss: {}` and `autoprefixer: {}`. If utilities silently don't apply, check `npm list tailwindcss` shows 3.x and that postcss.config.js is populated.
+- Zustand for transient client state that isn't server state (e.g. the upload queue
+  of files in flight). TanStack Query owns server state; Zustand owns local UI state
+  that's too complex for useState. Do not use it for data that lives on the backend.
 
 ## Architecture principles
 
@@ -120,3 +123,6 @@ Structure conventions (pragmatic, not dogmatic — this is a solo project):
 - Do not add decorative gradients, glows, drop-shadow "floating" effects, or generic
   filler illustrations. See DESIGN.md.
 - No emoji in UI or in generated copy. Use lucide-react icons and plain text.
+- Do not route direct-to-storage uploads (PUT to a Supabase signed URL) through
+  lib/api.ts. Those are raw fetch calls — they carry no JWT and go to a different
+  origin. lib/api.ts is ONLY for calls to our own backend.
