@@ -18,6 +18,7 @@ never hardcode a hex value or a pixel spacing that isn't in the system.
   weight is part of the design system)
 - Supabase JS client for AUTH ONLY (signInWithOtp, session/token). NEVER for database
   queries — all data goes through the backend API.
+- Tailwind CSS v3 (NOT v4 — v4 ignores tailwind.config.ts and the @tailwind directives). Styling depends on a non-empty postcss.config.js with `tailwindcss: {}` and `autoprefixer: {}`. If utilities silently don't apply, check `npm list tailwindcss` shows 3.x and that postcss.config.js is populated.
 
 ## Architecture principles
 

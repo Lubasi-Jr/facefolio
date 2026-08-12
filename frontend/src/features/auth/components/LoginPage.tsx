@@ -2,6 +2,10 @@ import { useState } from 'react'
 import type React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
+import { Card } from '@/components/ui/Card'
+import { Label } from '@/components/ui/Label'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 
 type Status = 'idle' | 'submitting' | 'sent' | 'error'
 
@@ -33,7 +37,7 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-container border border-border bg-surface p-8">
+      <Card className="w-full max-w-sm">
         <h1 className="font-heading text-h1 text-text-primary">Log in</h1>
         <p className="mt-2 text-body text-text-secondary">
           Enter your email and we&apos;ll send you a link to sign in.
@@ -46,10 +50,8 @@ export function LoginPage() {
         ) : (
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4" noValidate>
             <div className="flex flex-col gap-2">
-              <label htmlFor="email" className="text-small font-medium text-text-primary">
-                Email
-              </label>
-              <input
+              <Label htmlFor="email">Email</Label>
+              <Input
                 id="email"
                 type="email"
                 required
@@ -58,7 +60,6 @@ export function LoginPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 disabled={status === 'submitting'}
-                className="rounded-interactive border border-border bg-surface px-4 py-3 text-body text-text-primary disabled:text-text-disabled"
               />
             </div>
 
@@ -68,16 +69,17 @@ export function LoginPage() {
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
-              disabled={status === 'submitting'}
-              className="rounded-interactive bg-primary px-6 py-3 text-body font-medium text-on-primary hover:bg-primary-hover disabled:bg-surface-muted disabled:text-text-disabled"
+              variant="primary"
+              fullWidth
+              isLoading={status === 'submitting'}
             >
-              {status === 'submitting' ? 'Sending...' : 'Send magic link'}
-            </button>
+              Send magic link
+            </Button>
           </form>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
