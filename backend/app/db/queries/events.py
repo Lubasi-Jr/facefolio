@@ -45,3 +45,10 @@ async def list_events_by_host(session: AsyncSession, host_id: uuid.UUID) -> list
     stmt = select(Event).where(Event.host_id == host_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def delete_event(session: AsyncSession, event: Event) -> None:
+    # ON DELETE CASCADE on photos/faces/invitations/enrollments/tags handles
+    # the rest — see docs/FLOWS.md.
+    await session.delete(event)
+    await session.commit()

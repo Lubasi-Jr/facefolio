@@ -2,11 +2,14 @@ import uuid
 
 import structlog
 from fastapi import APIRouter, Depends, status
+from fastapi.concurrency import run_in_threadpool
 
-from app.auth.guards import require_event_member
-from app.db.queries.events import create_event, get_event, list_events_by_host
+from app.auth.guards import require_event_member, require_host
+from app.db.queries.events import create_event, delete_event, get_event, list_events_by_host
 from app.dependencies import CurrentUser, SessionDep
 from app.schemas.events import EventCreate, EventRead
+from app.storage.client import storage_client
+from app.storage.keys import event_prefix
 
 log = structlog.get_logger()
 
@@ -49,3 +52,28 @@ async def get_event_endpoint(
     session: SessionDep,
 ):
     return await get_event(session, event_id)
+
+
+@router.delete(
+    "/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_host)],
+)
+async def delete_event_endpoint(
+    event_id: uuid.UUID,
+    session: SessionDep,
+):
+    structlog.contextvars.bind_contextvars(event_id=str(event_id))
+    log.info("event.delete.requested")
+
+    event = await get_event(session, event_id)
+
+    # Storage first: if this fails, the DB row (and thus the host's ability
+    # to retry) survives. Deleting the DB row first and then failing the
+    # storage purge would strand biometric data with nothing pointing at it.
+    prefix = event_prefix(event_id)
+    purged_count = await run_in_threadpool(storage_client.delete_prefix, prefix)
+    log.info("event.storage.purged", prefix=prefix, count=purged_count)
+
+    await delete_event(session, event)
+    log.info("event.deleted")

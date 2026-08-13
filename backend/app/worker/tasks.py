@@ -15,7 +15,7 @@ from app.db.queries.enrollments import get_event_enrollments
 from app.db.queries.faces import FaceInsert, delete_faces_for_photo, insert_faces
 from app.db.queries.photos import get_photo, mark_photo_failed, mark_photo_processed
 from app.db.queries.tags import match_faces_to_enrollments, upsert_tags
-from app.db.session import async_session_factory
+from app.db.session import create_worker_engine
 from app.models.photo import Photo
 from app.storage.client import storage_client
 from app.storage.keys import thumb_key, web_key
@@ -36,8 +36,12 @@ async def _process_photo(photo_id: str) -> None:
     structlog.contextvars.bind_contextvars(photo_id=photo_id)
     log.info("photo.processing.started")
 
+    # Engine is created here, inside the coroutine asyncio.run() is driving,
+    # so its connections belong to *this* task's event loop. Disposed before
+    # we return, so nothing survives for a later task's loop to collide with.
+    engine, session_factory = create_worker_engine()
     try:
-        async with async_session_factory() as session:
+        async with session_factory() as session:
             photo = await get_photo(session, uuid.UUID(photo_id))
             if photo is None:
                 log.warning("photo.processing.not_found")
@@ -56,6 +60,7 @@ async def _process_photo(photo_id: str) -> None:
                 await mark_photo_failed(session, photo)
                 raise
     finally:
+        await engine.dispose()
         structlog.contextvars.clear_contextvars()
 
 

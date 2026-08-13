@@ -26,3 +26,10 @@ def face_crop_key(event_id: uuid.UUID, photo_id: uuid.UUID, face_id: uuid.UUID) 
 
 def enrollment_selfie_key(event_id: uuid.UUID, user_id: uuid.UUID) -> str:
     return f"events/{event_id}/enrollments/{user_id}.webp"
+
+
+def event_prefix(event_id: uuid.UUID) -> str:
+    """The whole-event storage prefix: originals, derivatives, face crops,
+    and enrollment selfies all live under this, so deleting it purges every
+    biometric and photo artifact for the event in one call."""
+    return f"events/{event_id}/"

@@ -17,3 +17,14 @@ export interface CreateEventInput {
   event_date?: string | null
   expires_at: string
 }
+
+// Mirrors backend/app/schemas/invitations.py — InvitationLinkRead
+
+export type InvitationStatus = 'pending' | 'joined' | 'revoked'
+
+export interface InvitationLink {
+  id: string
+  event_id: string
+  status: InvitationStatus
+  invite_link: string
+}
