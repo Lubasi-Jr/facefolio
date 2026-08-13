@@ -21,8 +21,10 @@ async def current_user(
 ) -> UUID:
     user_id, email = verify_token(credentials.credentials)
     # The JWT carries no display name; fall back to the email's local part
-    # until there's a "set your name" flow.
-    user = await get_or_create_user(session, user_id, email, display_name=email.split("@")[0])
+    # until there's a "set your name" flow. Anonymous guests have no email
+    # at all, so they fall back to "Guest".
+    display_name = email.split("@")[0] if email else "Guest"
+    user = await get_or_create_user(session, user_id, email, display_name=display_name)
     # Bound here so every log line for the rest of this request carries it,
     # without every endpoint having to bind it manually.
     structlog.contextvars.bind_contextvars(user_id=str(user.id))

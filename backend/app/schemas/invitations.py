@@ -29,3 +29,12 @@ class InvitationLinkRead(BaseModel):
     event_id: uuid.UUID
     status: Literal["pending", "joined", "revoked"]
     invite_link: str
+
+
+class InvitationPublicRead(BaseModel):
+    # Unauthenticated, pre-membership view for the /join/:token page — no host
+    # email, photo keys, or other event internals.
+    event_name: str
+    # Derived from Invitation.status + Event.status; expired takes precedence
+    # over revoked when both apply.
+    join_status: Literal["joinable", "revoked", "expired"]

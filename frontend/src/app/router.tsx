@@ -3,13 +3,16 @@ import { LoginPage } from '@/features/auth'
 import { EventsDashboardPage, EventDetailPage } from '@/features/events'
 import { JoinPage } from '@/features/enrollment'
 import { AppLayout } from '@/components/layouts/AppLayout'
+import { GuestLayout } from '@/components/layouts/GuestLayout'
 import { ProtectedRoute } from './ProtectedRoute'
 
 export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/join/:token" element={<JoinPage />} />
+      <Route element={<GuestLayout />}>
+        <Route path="/join/:token" element={<JoinPage />} />
+      </Route>
       <Route
         element={
           <ProtectedRoute>

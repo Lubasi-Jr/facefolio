@@ -12,7 +12,7 @@ log = structlog.get_logger()
 async def get_or_create_user(
     session: AsyncSession,
     user_id: uuid.UUID,
-    email: str,
+    email: str | None,
     display_name: str,
 ) -> User:
     user = await session.get(User, user_id)

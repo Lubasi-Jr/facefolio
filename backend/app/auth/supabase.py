@@ -12,7 +12,7 @@ log = structlog.get_logger()
 _jwks_client = PyJWKClient(settings.supabase_jwks_url)
 
 
-def verify_token(token: str) -> tuple[uuid.UUID, str]:
+def verify_token(token: str) -> tuple[uuid.UUID, str | None]:
     try:
         signing_key = _jwks_client.get_signing_key_from_jwt(token)
         payload = jwt.decode(
@@ -29,8 +29,10 @@ def verify_token(token: str) -> tuple[uuid.UUID, str]:
         ) from exc
 
     sub = payload.get("sub")
+    # Anonymous Supabase users (guests joining via invite link) carry no
+    # email claim — sub is the only claim we require.
     email = payload.get("email")
-    if not sub or not email:
+    if not sub:
         log.warning("auth.token_verification_failed", reason="missing_claims")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

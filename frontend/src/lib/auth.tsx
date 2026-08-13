@@ -12,6 +12,7 @@ interface AuthContextValue {
   session: Session | null
   loading: boolean
   signInWithOtp: (email: string) => Promise<void>
+  signInAnonymously: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -44,13 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }
 
+  async function signInAnonymously() {
+    const { error } = await supabase.auth.signInAnonymously()
+    if (error) throw error
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
 
   return (
-    <AuthContext.Provider value={{ session, loading, signInWithOtp, signOut }}>
+    <AuthContext.Provider
+      value={{ session, loading, signInWithOtp, signInAnonymously, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   )

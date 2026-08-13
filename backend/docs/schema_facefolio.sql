@@ -35,7 +35,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- this table holds the application-level user record.
 CREATE TABLE users (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    email         citext UNIQUE NOT NULL,      -- case-insensitive, one account per email
+    email         citext UNIQUE,                -- NULL for anonymous guest sign-ins
     display_name  text NOT NULL,
     created_at    timestamptz NOT NULL DEFAULT now()
 );

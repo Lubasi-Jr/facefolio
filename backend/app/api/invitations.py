@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth.guards import require_host
 from app.config import settings
+from app.db.queries.events import get_event
 from app.db.queries.invitations import (
     claim_invitation,
     create_guest_invitation,
@@ -12,7 +13,12 @@ from app.db.queries.invitations import (
     get_membership,
 )
 from app.dependencies import CurrentUser, SessionDep
-from app.schemas.invitations import InvitationCreate, InvitationLinkRead, InvitationRead
+from app.schemas.invitations import (
+    InvitationCreate,
+    InvitationLinkRead,
+    InvitationPublicRead,
+    InvitationRead,
+)
 
 log = structlog.get_logger()
 
@@ -39,6 +45,36 @@ async def create_invitation_endpoint(
         status=invitation.status,
         invite_link=f"{settings.frontend_origin}/join/{invitation.invite_token}",
     )
+
+
+@router.get("/invitations/{token}", response_model=InvitationPublicRead)
+async def get_invitation_public_endpoint(
+    token: str,
+    session: SessionDep,
+):
+    # No auth/membership check by design: this backs the pre-join /join/:token
+    # page, which anyone holding the link can view before they're a member.
+    invitation = await get_invitation_by_token(session, token)
+    if invitation is None:
+        log.info("invitation.lookup_rejected", reason="bad_token")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found")
+
+    structlog.contextvars.bind_contextvars(event_id=str(invitation.event_id))
+
+    event = await get_event(session, invitation.event_id)
+    if event is None:
+        log.info("invitation.lookup_rejected", reason="event_not_found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found")
+
+    if event.status != "active":
+        join_status = "expired"
+    elif invitation.status == "revoked":
+        join_status = "revoked"
+    else:
+        join_status = "joinable"
+
+    log.info("invitation.lookup", join_status=join_status)
+    return InvitationPublicRead(event_name=event.name, join_status=join_status)
 
 
 @router.post("/invitations/{token}/claim", response_model=InvitationRead)
