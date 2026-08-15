@@ -74,7 +74,9 @@ async def get_invitation_public_endpoint(
         join_status = "joinable"
 
     log.info("invitation.lookup", join_status=join_status)
-    return InvitationPublicRead(event_name=event.name, join_status=join_status)
+    return InvitationPublicRead(
+        event_id=invitation.event_id, event_name=event.name, join_status=join_status
+    )
 
 
 @router.post("/invitations/{token}/claim", response_model=InvitationRead)

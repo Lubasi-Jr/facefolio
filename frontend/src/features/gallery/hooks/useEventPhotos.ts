@@ -7,13 +7,14 @@ const POLL_INTERVAL_MS = 3000
 // Shares the same processing-status poll the uploader watches (same query
 // key, so this doesn't add a second network call) and stops refetching
 // thumbnails at exactly the moment that poll considers processing done.
-export function useEventPhotos(eventId: string) {
-  const { data: processingStatus } = useProcessingStatus(eventId)
+export function useEventPhotos(eventId: string, enabled = true) {
+  const { data: processingStatus } = useProcessingStatus(eventId, enabled)
   const isDone = !!processingStatus && isProcessingSettled(processingStatus)
 
   return useQuery({
     queryKey: ['event-photos', eventId],
     queryFn: () => getEventPhotos(eventId),
+    enabled,
     refetchInterval: isDone ? false : POLL_INTERVAL_MS,
   })
 }

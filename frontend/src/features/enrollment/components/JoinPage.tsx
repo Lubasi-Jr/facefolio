@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { AlertTriangle, Ban, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, Ban } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -8,12 +8,17 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useInvitation } from '../hooks/useInvitation'
 import { useClaimInvitation } from '../hooks/useClaimInvitation'
+import { useGuestFlowStore } from '../store'
+import { ConsentStep } from './ConsentStep'
+import { CaptureStep } from './CaptureStep'
+import { EnrollStep } from './EnrollStep'
 
 export function JoinPage() {
   const { token } = useParams<{ token: string }>()
   const { session, signInAnonymously } = useAuth()
   const { data: invitation, isPending, isError } = useInvitation(token!)
   const claim = useClaimInvitation(token!)
+  const guestStep = useGuestFlowStore((state) => state.step)
   const [joinError, setJoinError] = useState('')
 
   async function handleJoin() {
@@ -65,13 +70,13 @@ export function JoinPage() {
   }
 
   if (claim.isSuccess) {
-    return (
-      <EmptyState
-        icon={<CheckCircle2 size={32} />}
-        title="You're in"
-        description={`You've joined ${invitation.event_name}.`}
-      />
-    )
+    if (guestStep === 'capture') {
+      return <CaptureStep />
+    }
+    if (guestStep === 'enroll') {
+      return <EnrollStep eventId={invitation.event_id} />
+    }
+    return <ConsentStep eventName={invitation.event_name} />
   }
 
   return (

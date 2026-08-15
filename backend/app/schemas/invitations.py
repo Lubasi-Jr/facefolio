@@ -33,7 +33,11 @@ class InvitationLinkRead(BaseModel):
 
 class InvitationPublicRead(BaseModel):
     # Unauthenticated, pre-membership view for the /join/:token page — no host
-    # email, photo keys, or other event internals.
+    # email, photo keys, or other event internals. event_id IS included: the
+    # guest flow needs it for the event-scoped enroll calls after joining,
+    # and it carries no more information than the invite link itself already
+    # implies.
+    event_id: uuid.UUID
     event_name: str
     # Derived from Invitation.status + Event.status; expired takes precedence
     # over revoked when both apply.

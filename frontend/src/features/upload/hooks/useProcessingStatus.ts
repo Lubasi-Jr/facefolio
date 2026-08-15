@@ -12,10 +12,11 @@ export function isProcessingSettled(status: ProcessingStatus) {
   return total > 0 && status.processed + status.failed === total
 }
 
-export function useProcessingStatus(eventId: string) {
+export function useProcessingStatus(eventId: string, enabled = true) {
   return useQuery({
     queryKey: ['processing-status', eventId],
     queryFn: () => getProcessingStatus(eventId),
+    enabled,
     // Poll while anything is still awaiting upload/queued/processing; stop
     // the moment every photo has landed in a terminal state (processed or
     // failed) so the page isn't hammering the backend once there's nothing
