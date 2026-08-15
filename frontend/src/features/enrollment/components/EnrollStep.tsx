@@ -59,26 +59,40 @@ export function EnrollStep({ eventId }: EnrollStepProps) {
     setStep('capture')
   }
 
-  if (enroll.isError) {
-    const isRejection = enroll.error instanceof ApiError && enroll.error.status === 422
-    const reasonCode = isRejection ? getDetail(enroll.error.body) : null
-    const message = isRejection
-      ? (reasonCode && REJECTION_MESSAGES[reasonCode]) || DEFAULT_REJECTION_MESSAGE
-      : 'Something went wrong finding your photos. Try again.'
-
+  if (!enroll.isError) {
+    // Covers both the brief pre-mutate render (before the effect above calls
+    // enroll.mutate) and the actual pending state. Enroll does real CV work —
+    // face matching against every photo in the event — and can take a while
+    // on a cold model load, so this reads as an intentional wait, not a stall.
     return (
-      <Card className="w-full max-w-sm">
-        <AlertTriangle size={28} className="text-danger" aria-hidden="true" />
-        <h1 className="mt-3 font-heading text-h1 text-text-primary">That selfie didn&apos;t work</h1>
-        <p className="mt-2 text-body text-text-secondary">{message}</p>
-        <Button className="mt-6" variant="primary" fullWidth onClick={handleRetry}>
-          Try again
-        </Button>
+      <Card className="w-full max-w-sm text-center">
+        <Spinner size="lg" center />
+        <h1 className="mt-4 font-heading text-h1 text-text-primary">Finding your photos</h1>
+        <p className="mt-2 text-body text-text-secondary">
+          This can take a moment — we&apos;re matching your selfie against every photo at the
+          event.
+        </p>
       </Card>
     )
   }
 
-  return <Spinner center label="Finding your photos" />
+  const apiError = enroll.error instanceof ApiError ? enroll.error : null
+  const isRejection = apiError?.status === 422
+  const reasonCode = apiError && isRejection ? getDetail(apiError.body) : null
+  const message = isRejection
+    ? (reasonCode && REJECTION_MESSAGES[reasonCode]) || DEFAULT_REJECTION_MESSAGE
+    : 'Something went wrong finding your photos. Try again.'
+
+  return (
+    <Card className="w-full max-w-sm">
+      <AlertTriangle size={28} className="text-danger" aria-hidden="true" />
+      <h1 className="mt-3 font-heading text-h1 text-text-primary">That selfie didn&apos;t work</h1>
+      <p className="mt-2 text-body text-text-secondary">{message}</p>
+      <Button className="mt-6" variant="primary" fullWidth onClick={handleRetry}>
+        Try again
+      </Button>
+    </Card>
+  )
 }
 
 function getDetail(body: unknown): string | null {

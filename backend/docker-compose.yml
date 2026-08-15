@@ -11,6 +11,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/facefolio
       REDIS_URL: redis://redis:6379
+    volumes:
+      - insightface_models:/root/.insightface
     depends_on:
       postgres:
         condition: service_healthy   # wait for pg_isready before starting
@@ -35,6 +37,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/facefolio
       REDIS_URL: redis://redis:6379
+    volumes:
+      - insightface_models:/root/.insightface
     depends_on:
       postgres:
         condition: service_healthy   # wait for pg_isready before starting
@@ -78,3 +82,4 @@ services:
 
 volumes:
   postgres_data:
+  insightface_models:

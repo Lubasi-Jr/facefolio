@@ -9,6 +9,9 @@ interface EnrollInput {
 
 export function useEnroll(eventId: string) {
   return useMutation({
+    // No client-side timeout/AbortSignal here, and none in lib/api.ts either —
+    // enroll runs real face-matching CV work and can be slow on a cold model
+    // load, so aborting early would fail a request that was going to succeed.
     mutationFn: async ({ selfieBlob, consent }: EnrollInput) => {
       const prepared = await prepareEnrollment(eventId)
       await putBlobToStorage(prepared.upload_url, selfieBlob)

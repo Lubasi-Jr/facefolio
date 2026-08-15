@@ -6,6 +6,7 @@ should call it via FastAPI's run_in_threadpool so it doesn't block the loop.
 """
 
 import structlog
+from storage3.types import CreateSignedUploadUrlOptions
 from supabase import Client, create_client
 
 from app.config import settings
@@ -20,14 +21,32 @@ class StorageClient:
         client: Client = create_client(settings.supabase_url, settings.supabase_service_key)
         self._bucket = client.storage.from_(settings.storage_bucket)
 
-    def create_signed_upload_url(self, key: str) -> dict[str, str]:
-        """One-time URL + token the caller (browser) uploads directly to."""
+    def create_signed_upload_url(self, key: str, *, upsert: bool = False) -> dict[str, str]:
+        """One-time URL + token the caller (browser) uploads directly to.
+
+        upsert=True lets the URL replace an existing object at `key` instead
+        of the API 409ing (e.g. re-enrollment reusing the guest's deterministic
+        selfie key). storage3's create_signed_upload_url supports an upsert
+        option natively (sent as the x-upsert header); if a downgrade ever
+        drops that support, fall back to deleting the existing object first.
+        """
         try:
+            options = CreateSignedUploadUrlOptions(upsert="true") if upsert else None
+            result = self._bucket.create_signed_upload_url(key, options)
+        except TypeError:
+            if not upsert:
+                raise
+            log.warning("storage.signed_upload_url.upsert_unsupported", key=key)
+            try:
+                self._bucket.remove([key])
+            except Exception:
+                log.exception("storage.object.pre_delete_failed", key=key)
+                raise
             result = self._bucket.create_signed_upload_url(key)
         except Exception:
             log.exception("storage.signed_upload_url.failed", key=key)
             raise
-        log.info("storage.signed_upload_url.created", key=key)
+        log.info("storage.signed_upload_url.created", key=key, upsert=upsert)
         return result
 
     def create_signed_read_url(self, key: str, expires_in: int) -> str:

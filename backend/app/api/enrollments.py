@@ -42,7 +42,7 @@ async def prepare_enrollment_endpoint(
     key = enrollment_selfie_key(event_id, user_id)
 
     try:
-        signed = await run_in_threadpool(storage_client.create_signed_upload_url, key)
+        signed = await run_in_threadpool(storage_client.create_signed_upload_url, key, upsert=True)
     except Exception:
         log.exception("enrollment.upload.signed_url_failed")
         raise HTTPException(
