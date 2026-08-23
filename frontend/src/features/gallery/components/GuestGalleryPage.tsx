@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useEventPhotos } from '../hooks/useEventPhotos'
 import { useMyPhotos } from '../hooks/useMyPhotos'
+import { PendingTagReview } from './PendingTagReview'
 import { PhotoGrid } from './PhotoGrid'
 import { Lightbox } from './Lightbox'
 import type { GalleryPhoto } from '../types'
@@ -26,6 +27,8 @@ export function GuestGalleryPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 self-start px-4 py-8 sm:px-6">
+      <PendingTagReview eventId={eventId} />
+
       <div className="flex gap-1 rounded-interactive border border-border bg-surface p-1">
         <button
           type="button"

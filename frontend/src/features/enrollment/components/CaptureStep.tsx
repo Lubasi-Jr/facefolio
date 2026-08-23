@@ -43,7 +43,10 @@ export function CaptureStep() {
           return
         }
         streamRef.current = stream
-        if (videoRef.current) videoRef.current.srcObject = stream
+        // Don't touch videoRef here: the <video> element only renders once
+        // cameraState is 'ready', so it isn't mounted yet at this point and
+        // the ref is still null. Attaching the stream is handled by the
+        // effect below, which runs after that render commits.
         setCameraState('ready')
       })
       .catch((error) => {
@@ -68,6 +71,20 @@ export function CaptureStep() {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  // Attaches the stream once the <video> element actually exists in the DOM
+  // (it only mounts when cameraState is 'ready', one render after the stream
+  // is obtained). Some browsers won't start rendering frames from a fresh
+  // srcObject without an explicit play() call, and play() can reject if the
+  // load is interrupted (e.g. a fast retake) — that rejection is expected
+  // and safe to ignore, the stream stays attached either way.
+  useEffect(() => {
+    const video = videoRef.current
+    const stream = streamRef.current
+    if (cameraState !== 'ready' || !video || !stream) return
+    video.srcObject = stream
+    video.play().catch(() => {})
+  }, [cameraState])
 
   function showPreview(blob: Blob) {
     stopStream()

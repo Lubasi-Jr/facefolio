@@ -35,6 +35,11 @@ COPY app/ ./app/
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
 
+# Offline calibration tools (e.g. scripts/evaluate_thresholds.py) — not part of
+# the running API/worker, but shipped so they run against the same model/deps
+# as production instead of a separately-managed local environment.
+COPY scripts/ ./scripts/
+
 # Activate the venv by prepending its bin dir to PATH.
 ENV PATH="/app/.venv/bin:$PATH" \
     # Don't write .pyc files into the image.

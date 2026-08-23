@@ -16,5 +16,10 @@ class EnrollRequest(BaseModel):
 
 
 class EnrollResponse(BaseModel):
+    # Confirmed matches only — this is the immediate "Photos of you" result.
     matched_count: int
     matched_photo_ids: list[uuid.UUID]
+    # Matches banded 'pending_guest' (see app/db/queries/tags.classify_match):
+    # stored as tags already, but need the guest to confirm before they count
+    # as "yours". Not included in matched_count/matched_photo_ids above.
+    pending_review_count: int

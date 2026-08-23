@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/lib/api'
@@ -38,6 +38,12 @@ export function EnrollStep({ eventId }: EnrollStepProps) {
   // a second time.
   const startedRef = useRef(false)
 
+  // A 200 from /enroll is success regardless of confirmed/pending counts —
+  // even zero confirmed matches should land the guest on the gallery to see
+  // the empty state, not get treated as a failure. Any pending matches
+  // surface later as "Is this you?" cards there (PendingTagReview).
+  const [navigationFailed, setNavigationFailed] = useState(false)
+
   useEffect(() => {
     if (startedRef.current || !selfieBlob) return
     startedRef.current = true
@@ -46,20 +52,27 @@ export function EnrollStep({ eventId }: EnrollStepProps) {
   }, [selfieBlob, consent])
 
   useEffect(() => {
-    if (enroll.isSuccess) {
+    if (!enroll.isSuccess) return
+    // Guards the success path itself: if reset()/navigate() ever throws,
+    // fall through to the error card with a retry instead of leaving the
+    // spinner up forever.
+    try {
       reset()
       navigate(`/events/${eventId}/mine`, { replace: true })
+    } catch {
+      setNavigationFailed(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enroll.isSuccess])
 
   function handleRetry() {
     startedRef.current = false
+    setNavigationFailed(false)
     enroll.reset()
     setStep('capture')
   }
 
-  if (!enroll.isError) {
+  if (!enroll.isError && !navigationFailed) {
     // Covers both the brief pre-mutate render (before the effect above calls
     // enroll.mutate) and the actual pending state. Enroll does real CV work —
     // face matching against every photo in the event — and can take a while

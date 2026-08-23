@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.auth.guards import require_event_member
+from app.config import settings
 from app.cv.detector import detect_faces
 from app.cv.embedder import normalize_face_embedding
 from app.cv.imaging import load_bgr
 from app.cv.quality import validate_selfie
 from app.db.queries.enrollments import upsert_enrollment
-from app.db.queries.tags import TagUpsert, match_enrollment_to_faces, upsert_tags
+from app.db.queries.tags import TagUpsert, classify_match, match_enrollment_to_faces, upsert_tags
 from app.dependencies import CurrentUser, SessionDep
 from app.schemas.enrollments import EnrollRequest, EnrollResponse, PrepareEnrollmentResponse
 from app.storage.client import storage_client
@@ -118,17 +119,32 @@ async def enroll_endpoint(
     log.info("enrollment.created", quality_score=round(enrollment.quality_score, 3))
 
     matches = await match_enrollment_to_faces(session, event_id, embedding)
-    # face_id is left unset: this match is against photos, not a specific
-    # face row (see TagUpsert). source/status take the photo_tags column
-    # defaults, which are "auto" and "confirmed".
-    tags = [
-        TagUpsert(photo_id=match.photo_id, user_id=user_id, similarity=match.similarity)
-        for match in matches
-    ]
-    await upsert_tags(session, tags)
-    log.info("enrollment.matched", count=len(matches))
+    # match_enrollment_to_faces only returns a floor-filtered similarity per
+    # photo (no runner-up), so classify_match always skips the margin test
+    # here (second_best=None). face_id is left unset: this match is against
+    # photos, not a specific face row (see TagUpsert). source takes the
+    # photo_tags column default, "auto".
+    confirmed_tags = []
+    pending_tags = []
+    for match in matches:
+        band = classify_match(
+            match.similarity, None, settings.match_t_high, settings.match_t_low, settings.match_margin
+        )
+        if band == "none":
+            continue
+        tag = TagUpsert(photo_id=match.photo_id, user_id=user_id, similarity=match.similarity, status=band)
+        (confirmed_tags if band == "confirmed" else pending_tags).append(tag)
+
+    await upsert_tags(session, confirmed_tags + pending_tags)
+    log.info(
+        "enrollment.matched",
+        candidate_count=len(matches),
+        confirmed_count=len(confirmed_tags),
+        pending_count=len(pending_tags),
+    )
 
     return EnrollResponse(
-        matched_count=len(matches),
-        matched_photo_ids=[match.photo_id for match in matches],
+        matched_count=len(confirmed_tags),
+        matched_photo_ids=[tag.photo_id for tag in confirmed_tags],
+        pending_review_count=len(pending_tags),
     )

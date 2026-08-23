@@ -19,6 +19,10 @@ export interface EnrollRequest {
 }
 
 export interface EnrollResponse {
+  // Confirmed matches only — the immediate "Photos of you" result.
   matched_count: number
   matched_photo_ids: string[]
+  // Matches banded 'pending_guest': already stored as tags, but need guest
+  // confirmation before they count as "yours" (see PendingTagReview).
+  pending_review_count: number
 }

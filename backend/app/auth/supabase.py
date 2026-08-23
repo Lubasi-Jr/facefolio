@@ -30,8 +30,9 @@ def verify_token(token: str) -> tuple[uuid.UUID, str | None]:
 
     sub = payload.get("sub")
     # Anonymous Supabase users (guests joining via invite link) carry no
-    # email claim — sub is the only claim we require.
-    email = payload.get("email")
+    # email claim, or an empty-string one — normalize both to None so a
+    # missing email is inserted as NULL, never '', downstream.
+    email = payload.get("email") or None
     if not sub:
         log.warning("auth.token_verification_failed", reason="missing_claims")
         raise HTTPException(

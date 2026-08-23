@@ -19,13 +19,13 @@ class Settings(BaseSettings):
 
     # CV match thresholds (cosine similarity): above t_high auto-tags, between
     # t_low and t_high needs guest confirmation, below t_low is ignored.
-    match_t_high: float
-    match_t_low: float
-    match_margin: float
-
-    # Single cosine-similarity cutoff for auto-tagging. Placeholder ahead of
-    # Phase 11, which replaces this with the t_high/t_low/margin bands above.
-    match_threshold: float = 0.5
+    # match_margin downgrades a top match when the runner-up is too close to call.
+    # Defaults below are placeholders, not measured values — calibrate them with
+    # scripts/evaluate_thresholds.py against a labeled genuine/impostor similarity
+    # distribution before trusting them in production.
+    match_t_high: float = 0.5
+    match_t_low: float = 0.35
+    match_margin: float = 0.05
 
     max_photos_per_event: int
     celery_concurrency: int
