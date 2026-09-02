@@ -41,7 +41,8 @@ export function ConsentStep({ eventName }: ConsentStepProps) {
         <li className="flex items-start gap-3">
           <Trash2 size={20} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden="true" />
           <span className="text-small text-text-secondary">
-            Your selfie and face data are permanently deleted when this event expires.
+            Your selfie and face data are permanently deleted within 7 days of the
+            event ending.
           </span>
         </li>
       </ul>

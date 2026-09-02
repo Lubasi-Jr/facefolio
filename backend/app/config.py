@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # How long a gallery's signed web/thumb read URLs stay valid, in seconds.
     gallery_url_expires_in: int = 3600
 
+    # Days after an event's expires_at before its biometric data (enrollment
+    # selfies/embeddings, face embeddings/crops) is purged.
+    purge_grace_days: int = 7
+
     @property
     def supabase_jwks_url(self) -> str:
         return f"{self.supabase_url}/auth/v1/.well-known/jwks.json"

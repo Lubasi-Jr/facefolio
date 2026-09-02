@@ -1,6 +1,8 @@
 import asyncio
 import tempfile
+import time
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -14,15 +16,35 @@ from app.cv.quality import is_face_usable
 from app.db.queries.enrollments import get_event_enrollments
 from app.db.queries.faces import FaceInsert, delete_faces_for_photo, insert_faces
 from app.db.queries.photos import get_photo, mark_photo_failed, mark_photo_processed
+from app.db.queries.purge import (
+    find_expired_events,
+    mark_event_purged,
+    purge_event_biometrics_db,
+    write_deletion_log,
+)
 from app.db.queries.tags import match_faces_to_enrollments, upsert_tags
 from app.db.session import create_worker_engine
 from app.models.photo import Photo
 from app.storage.client import storage_client
-from app.storage.keys import thumb_key, web_key
+from app.storage.keys import enrollment_prefix, thumb_key, web_key
 from app.utils.exif import read_taken_at
 from app.worker.celery_app import celery_app
 
 log = structlog.get_logger()
+
+# What purge_expired_data destroys: the face_enrollments row (selfie
+# reference + embedding), the embedding vector itself (also nulled on
+# faces), and the enrollment selfie object in storage. Recorded in
+# deletion_log, never the biometric content it describes.
+_PURGED_CATEGORIES = ["enrollments", "embeddings", "selfies"]
+
+# Storage delete_prefix + re-list confirmation loop, distinct from Celery's
+# task-level retry: Phase A has already committed by the time Phase B runs,
+# so a transient storage failure retries in place first rather than
+# immediately failing the whole task (which would just redo Phase A, harmless
+# but wasteful).
+_STORAGE_DELETE_MAX_ATTEMPTS = 3
+_STORAGE_DELETE_RETRY_SECONDS = 2
 
 
 @celery_app.task(bind=True, max_retries=3, autoretry_for=(Exception,), retry_backoff=True)
@@ -151,12 +173,118 @@ async def _run_pipeline(session: AsyncSession, photo: Photo) -> None:
         Path(tmp_path).unlink(missing_ok=True)
 
 
-@celery_app.task(bind=True, max_retries=3)
-def purge_expired_data(self) -> None:
-    log.info("maintenance.purge.started")
-    # TODO: delete expired biometric data (embeddings, selfies, face crops)
-    # per each event's retention policy.
-    log.info("maintenance.purge.completed")
+@celery_app.task(bind=True, max_retries=3, autoretry_for=(Exception,), retry_backoff=True)
+def purge_expired_data(self, dry_run: bool = False) -> None:
+    # Sync task boundary, single asyncio.run() wrapping the async DB work —
+    # same shape as process_photo above.
+    asyncio.run(_purge_expired_data(dry_run=dry_run))
+
+
+async def _purge_expired_data(dry_run: bool) -> None:
+    log.info("maintenance.purge.started", dry_run=dry_run)
+
+    engine, session_factory = create_worker_engine()
+    try:
+        async with session_factory() as session:
+            events = await find_expired_events(session)
+            log.info(
+                "maintenance.purge.candidates_found",
+                count=len(events),
+                event_ids=[str(event.id) for event in events],
+                dry_run=dry_run,
+            )
+
+            if dry_run:
+                # No mutation at all — this is purely so the selection can be
+                # eyeballed (event_ids above) before any deletion runs live.
+                log.info("maintenance.purge.dry_run_complete", would_purge_count=len(events))
+                return
+
+            purged_count = 0
+            failed_event_ids: list[str] = []
+            for event in events:
+                try:
+                    await _purge_one_event(session, event.id)
+                    purged_count += 1
+                except Exception:
+                    failed_event_ids.append(str(event.id))
+                    log.exception("maintenance.purge.event_failed", event_id=str(event.id))
+                finally:
+                    structlog.contextvars.unbind_contextvars("event_id")
+
+            log.info(
+                "maintenance.purge.completed",
+                purged_count=purged_count,
+                failed_count=len(failed_event_ids),
+                failed_event_ids=failed_event_ids,
+            )
+            if failed_event_ids:
+                # Raise so Celery's autoretry re-runs the batch. Every step
+                # below is idempotent and find_expired_events excludes events
+                # already marked 'purged', so the retry only redoes the
+                # events that actually failed.
+                raise RuntimeError(f"purge failed for {len(failed_event_ids)} event(s)")
+    finally:
+        await engine.dispose()
+        structlog.contextvars.clear_contextvars()
+
+
+async def _purge_one_event(session: AsyncSession, event_id: uuid.UUID) -> None:
+    structlog.contextvars.bind_contextvars(event_id=str(event_id))
+
+    # Phase A first: the DB transaction makes biometric data unusable to any
+    # query (matching, gallery, exports) immediately, even if the storage
+    # delete below is slow or has to retry.
+    await purge_event_biometrics_db(session, event_id)
+    db_purged_at = datetime.now(UTC)
+    log.info("maintenance.purge.db_purged", event_id=str(event_id))
+
+    # Phase B: only the enrollments/ prefix. Never originals/, web/, or
+    # thumbs/ — those are the non-biometric event photos guests still expect
+    # to see. (Face crops are never stored today — every faces.crop_key is
+    # null, which is why Phase A nulls it defensively — so there is no
+    # faces/ prefix to delete here; if crop storage is added later, extend
+    # this to also purge events/{id}/faces/.)
+    prefix = enrollment_prefix(event_id)
+    deleted_count = _delete_prefix_confirmed(prefix)
+    storage_purged_at = datetime.now(UTC)
+    log.info(
+        "maintenance.purge.storage_purged",
+        event_id=str(event_id),
+        deleted_count=deleted_count,
+    )
+
+    await mark_event_purged(session, event_id)
+    await write_deletion_log(
+        session,
+        event_id=event_id,
+        categories=_PURGED_CATEGORIES,
+        db_purged_at=db_purged_at,
+        storage_purged_at=storage_purged_at,
+    )
+    log.info("maintenance.purge.event_completed", event_id=str(event_id))
+
+
+def _delete_prefix_confirmed(prefix: str) -> int:
+    """Deletes a storage prefix, retrying until a re-list confirms it's
+    empty. Raises if it still isn't after all attempts, so the caller never
+    reports storage_purged_at for a prefix that might not actually be empty.
+    """
+    deleted_count = 0
+    for attempt in range(1, _STORAGE_DELETE_MAX_ATTEMPTS + 1):
+        deleted_count = storage_client.delete_prefix(prefix)
+        if storage_client.prefix_is_empty(prefix):
+            return deleted_count
+        log.warning(
+            "maintenance.purge.storage_delete_unconfirmed",
+            prefix=prefix,
+            attempt=attempt,
+        )
+        if attempt < _STORAGE_DELETE_MAX_ATTEMPTS:
+            time.sleep(_STORAGE_DELETE_RETRY_SECONDS * attempt)
+    raise RuntimeError(
+        f"storage prefix not confirmed empty after {_STORAGE_DELETE_MAX_ATTEMPTS} attempts: {prefix}"
+    )
 
 
 @celery_app.task(bind=True, max_retries=3)

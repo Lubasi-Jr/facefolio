@@ -14,6 +14,7 @@ from app.cv.embedder import normalize_face_embedding
 from app.cv.imaging import load_bgr
 from app.cv.quality import validate_selfie
 from app.db.queries.enrollments import upsert_enrollment
+from app.db.queries.purge import purge_user_biometrics_db
 from app.db.queries.tags import TagUpsert, classify_match, match_enrollment_to_faces, upsert_tags
 from app.dependencies import CurrentUser, SessionDep
 from app.schemas.enrollments import EnrollRequest, EnrollResponse, PrepareEnrollmentResponse
@@ -148,3 +149,42 @@ async def enroll_endpoint(
         matched_photo_ids=[tag.photo_id for tag in confirmed_tags],
         pending_review_count=len(pending_tags),
     )
+
+
+@router.delete(
+    "/events/{event_id}/enrollment/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_event_member)],
+)
+async def erase_my_enrollment_endpoint(
+    event_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUser,
+):
+    """Right-to-erasure for a single guest: removes only their own biometric
+    data from this event. Other guests' faces/tags and the event's photos
+    are untouched.
+
+    DB before storage, same reasoning as the batch purge job
+    (purge_expired_data): the DB step is what makes this guest's biometric
+    data unusable to any future matching query, so it should land first even
+    if the storage delete below is slow or has to be retried. Both steps are
+    idempotent, so a retried request (e.g. after a storage failure) is safe.
+    """
+    structlog.contextvars.bind_contextvars(event_id=str(event_id), user_id=str(user_id))
+    log.info("enrollment.erasure.requested")
+
+    await purge_user_biometrics_db(session, event_id=event_id, user_id=user_id)
+    log.info("enrollment.erasure.db_purged")
+
+    key = enrollment_selfie_key(event_id, user_id)
+    try:
+        await run_in_threadpool(storage_client.delete_object, key)
+    except Exception:
+        log.exception("enrollment.erasure.storage_failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Your enrollment data was removed, but retry is needed to finish cleanup",
+        ) from None
+
+    log.info("enrollment.erasure.completed")

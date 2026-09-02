@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.deletion_log import DeletionLog
 from app.models.event import Event
 from app.models.face import Face
 from app.models.face_enrollment import FaceEnrollment
@@ -9,6 +10,7 @@ from app.models.user import User
 
 __all__ = [
     "Base",
+    "DeletionLog",
     "Event",
     "Face",
     "FaceEnrollment",

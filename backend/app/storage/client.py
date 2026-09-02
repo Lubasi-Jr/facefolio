@@ -97,6 +97,16 @@ class StorageClient:
             raise
         log.info("storage.object.downloaded", key=key, size_bytes=len(data))
 
+    def delete_object(self, key: str) -> None:
+        # Idempotent: removing a key that's already gone (e.g. a retried
+        # erasure request) is not an error, same as storage3's remove().
+        try:
+            self._bucket.remove([key])
+        except Exception:
+            log.exception("storage.object.delete_failed", key=key)
+            raise
+        log.info("storage.object.deleted", key=key)
+
     def delete_prefix(self, prefix: str) -> int:
         try:
             keys = self._list_keys(prefix)
@@ -107,6 +117,9 @@ class StorageClient:
             raise
         log.info("storage.prefix.deleted", prefix=prefix, count=len(keys))
         return len(keys)
+
+    def prefix_is_empty(self, prefix: str) -> bool:
+        return len(self._list_keys(prefix)) == 0
 
     def _list_keys(self, prefix: str) -> list[str]:
         """Recursively collects file keys under a prefix.

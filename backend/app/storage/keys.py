@@ -28,6 +28,12 @@ def enrollment_selfie_key(event_id: uuid.UUID, user_id: uuid.UUID) -> str:
     return f"events/{event_id}/enrollments/{user_id}.webp"
 
 
+def enrollment_prefix(event_id: uuid.UUID) -> str:
+    """Scoped to just the enrollment selfies — unlike event_prefix, the
+    biometric purge job must delete only this, never originals/web/thumbs."""
+    return f"events/{event_id}/enrollments/"
+
+
 def event_prefix(event_id: uuid.UUID) -> str:
     """The whole-event storage prefix: originals, derivatives, face crops,
     and enrollment selfies all live under this, so deleting it purges every
