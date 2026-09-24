@@ -14,8 +14,11 @@ class Settings(BaseSettings):
     supabase_service_key: str
     storage_bucket: str
 
-    # CORS: comma-separated if more than one origin.
-    frontend_origin: str
+    # Allowed CORS origins, comma-separated (e.g.
+    # "http://localhost:5173,https://facefolio.vercel.app"). CORSMiddleware
+    # needs the list, not a wildcard, because allow_credentials=True forbids
+    # combining credentials with allow_origins=["*"].
+    frontend_origins: str
 
     # CV match thresholds (cosine similarity): above t_high auto-tags, between
     # t_low and t_high needs guest confirmation, below t_low is ignored.
@@ -56,6 +59,17 @@ class Settings(BaseSettings):
     @property
     def supabase_jwks_url(self) -> str:
         return f"{self.supabase_url}/auth/v1/.well-known/jwks.json"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.frontend_origins.split(",") if origin.strip()]
+
+    @property
+    def frontend_origin(self) -> str:
+        """Canonical origin for building absolute links (invite links).
+        The first entry in frontend_origins — keep the real app origin listed
+        first in that env var so links don't point at localhost."""
+        return self.cors_origins[0]
 
 
 settings = Settings()

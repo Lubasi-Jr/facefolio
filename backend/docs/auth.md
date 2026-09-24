@@ -270,7 +270,7 @@ Consequences:
 | --- | --- |
 | `SUPABASE_URL` | Project URL; the JWKS URL is derived from it |
 | `SUPABASE_JWKS_URL` | `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` (derived, not a separate secret) |
-| `FRONTEND_ORIGIN` | Used to build `invite_link` and for CORS |
+| `FRONTEND_ORIGINS` | Comma-separated allowed CORS origins; the first entry also becomes the canonical origin used to build `invite_link` |
 
 **No JWT secret is needed.** Verification uses public keys fetched from JWKS. The legacy
 `SUPABASE_JWT_SECRET` has been removed from `Settings`.

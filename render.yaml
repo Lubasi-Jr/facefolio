@@ -1,0 +1,123 @@
+# Render Blueprint for the backend. Frontend deploys separately to Vercel
+# (see root CLAUDE.md). All three services below build from the same image
+# (backend/Dockerfile) — API and worker processing share app/cv/ and
+# app/db/queries/, so one image keeps them from drifting apart.
+#
+# Deploy: connect this repo in the Render dashboard and it picks up this file
+# (or Blueprints -> New Blueprint Instance if it's not auto-detected).
+
+envVarGroups:
+  - name: facefolio-shared
+    envVars:
+      # --- Secrets / deployment-specific — set these in the Render dashboard,
+      # not here. `sync: false` means Render prompts for a value and does not
+      # store it in this file. ---
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        sync: false
+      # Comma-separated; put the real Vercel origin first since
+      # settings.frontend_origin (used for invite links) reads the first
+      # entry. e.g. https://facefolio.vercel.app,http://localhost:5173
+      - key: FRONTEND_ORIGINS
+        sync: false
+
+      # --- Non-secret tunables — committed with the same defaults as
+      # backend/.env.example. Edit here or override per-environment in the
+      # Render dashboard. ---
+      - key: ENVIRONMENT
+        value: production
+      - key: PURGE_GRACE_DAYS
+        value: "7"
+      - key: MATCH_T_HIGH
+        value: "0.55"
+      - key: MATCH_T_LOW
+        value: "0.40"
+      - key: MATCH_MARGIN
+        value: "0.10"
+      - key: FACE_MIN_SIZE_PX
+        value: "60"
+      - key: FACE_DET_SCORE_MIN
+        value: "0.6"
+      - key: FACE_BLUR_VARIANCE_MIN
+        value: "100.0"
+      - key: SELFIE_MIN_FACE_SIZE_PX
+        value: "200"
+      - key: SELFIE_BRIGHTNESS_MIN
+        value: "40.0"
+      - key: SELFIE_BRIGHTNESS_MAX
+        value: "220.0"
+      - key: MAX_PHOTOS_PER_EVENT
+        value: "500"
+      - key: CELERY_CONCURRENCY
+        value: "2"
+
+# Every field above is required by app/config.py's Settings (no default) or
+# is imported eagerly by app/worker/celery_app.py (`settings = Settings()`
+# runs at import time for the worker AND beat, not just the API), so all
+# three services need the full group even though beat, say, never reads
+# MAX_PHOTOS_PER_EVENT — a missing required field crashes Settings() on
+# startup regardless of which service is starting.
+
+services:
+  # API — the only public service. Serves enrollment + gallery reads;
+  # issues presigned upload/read URLs but never proxies file bytes.
+  - type: web
+    name: facefolio-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: facefolio-shared
+      # Render's proxy routes to this port; must match what uvicorn binds to
+      # (the Dockerfile's CMD already uses 8000, so no dockerCommand override
+      # needed here).
+      - key: PORT
+        value: "8000"
+
+  # Worker — runs the CV pipeline (detect, embed, match) per photo. Given
+  # more memory than the API/beat since InsightFace/onnxruntime inference is
+  # the one CPU/memory-heavy process type here.
+  #
+  # --pool=threads (not the default prefork, and not docker-compose's
+  # --pool=solo): prefork's forked children don't survive with onnxruntime/
+  # OpenCV loaded (see backend/docker-compose.yml's comment on the same
+  # issue — the model is loaded once in worker_process_init and forking
+  # after that hangs). threads avoids forking, so CELERY_CONCURRENCY
+  # actually controls parallelism here — solo ignores it entirely. Flagging
+  # this because it's a real behavior change from local dev's --pool=solo;
+  # revisit if threaded onnxruntime sessions turn out not to be safe under
+  # load.
+  - type: worker
+    name: facefolio-worker
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: standard
+    dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --pool=threads --concurrency=$CELERY_CONCURRENCY
+    envVars:
+      - fromGroup: facefolio-shared
+
+  # Beat — schedules the recurring biometric purge and match-recall
+  # reconcile tasks. No public URL, no heavy CV work, so it stays on the
+  # smaller plan.
+  - type: worker
+    name: facefolio-beat
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    dockerCommand: celery -A app.worker.celery_app beat --loglevel=info
+    envVars:
+      - fromGroup: facefolio-shared

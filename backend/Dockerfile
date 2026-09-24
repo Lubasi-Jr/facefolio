@@ -29,6 +29,15 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy application source.
 COPY app/ ./app/
 
+# Bake the buffalo_l model weights (~300MB) into this layer instead of fetching
+# them at runtime. Calls the same get_model() the API and worker use at request/
+# task time (same name, providers, det_size), so nothing drifts between what's
+# downloaded here and what actually loads in production — enrollment (API) and
+# photo processing (worker) both hit warm, offline weights on their first call
+# across all three process types that share this image (API, worker, beat).
+# Tradeoff: bigger image, slower build, in exchange for fast/offline startup.
+RUN /app/.venv/bin/python -c "from app.cv.loader import get_model; get_model()"
+
 # Copy Alembic config and migrations so `alembic upgrade head` can run in this container,
 # reusing the DATABASE_URL override docker-compose.yml sets for this service instead of
 # needing host-side env juggling.
